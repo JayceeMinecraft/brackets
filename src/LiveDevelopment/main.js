@@ -75,6 +75,10 @@ define(function main(require, exports, module) {
     
     // current selected implementation (LiveDevelopment | LiveDevMultiBrowser)
     var LiveDevImpl;
+    
+    // "livedev.multibrowser" preference
+    var PREF_MULTIBROWSER = "livedev.multibrowser";
+    var multiBrowserPref = PreferencesManager.definePreference(PREF_MULTIBROWSER, "boolean", false);
 
     /** Load Live Development LESS Style */
     function _loadStyles() {
@@ -274,6 +278,8 @@ define(function main(require, exports, module) {
         // It has to be initiated at this point in case of dynamically switching 
         // by changing the preference value.
         MultiBrowserLiveDev.init(config);
+
+        _setImplementation(PreferencesManager.get(PREF_MULTIBROWSER));
         
         _loadStyles();
         _setupGoLiveButton();
@@ -299,6 +305,23 @@ define(function main(require, exports, module) {
                 LiveDevelopment.redrawHighlight();
             }
         });
+        
+        multiBrowserPref
+            .on("change", function () {
+                // stop the current session if it is open and set implementation based on 
+                // the pref value. It could be automaticallty restarted but, since the preference file,
+                // is the document open in the editor, it will no launch a live document.
+                if (LiveDevImpl && LiveDevImpl.status >= LiveDevImpl.STATUS_ACTIVE) {
+                    LiveDevImpl.close();
+                    // status changes will now be listen from the new implementation
+                    LiveDevImpl.off("statusChange");
+                }
+                _setImplementation(PreferencesManager.get(PREF_MULTIBROWSER));
+                // setup status changes listeners for new implementation
+                _setupGoLiveButton();
+                _setupGoLiveMenu();
+            });
+
     });
     
     // init prefs
@@ -312,23 +335,7 @@ define(function main(require, exports, module) {
         "highlight": "user livedev.highlight",
         "afterFirstLaunch": "user livedev.afterFirstLaunch"
     }, true);
-    
-    PreferencesManager.definePreference("livedev.multibrowser", "boolean", false)
-        .on("change", function () {
-            // stop the current session if it is open and set implementation based on 
-            // the pref value. It could be automaticallty restarted but, since the preference file,
-            // is the document open in the editor, it will no launch a live document.
-            if (LiveDevImpl && LiveDevImpl.status >= LiveDevImpl.STATUS_ACTIVE) {
-                LiveDevImpl.close();
-                // status changes will now be listen from the new implementation
-                LiveDevImpl.off('statusChange');
-            }
-            _setImplementation(PreferencesManager.get('livedev.multibrowser'));
-            // setup status changes listeners for new implementation
-            _setupGoLiveButton();
-            _setupGoLiveMenu();
-        });
-    
+        
     config.highlight = PreferencesManager.getViewState("livedev.highlight");
    
     // init commands
